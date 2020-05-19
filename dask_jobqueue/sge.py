@@ -22,8 +22,12 @@ class SGEJob(Job):
         walltime=None,
         job_extra=None,
         config_name=None,
-        **kwargs
+        **kwargs,
     ):
+        # Injecting SGE_TASK_ID to cluster name for TA support
+        # When used with `SGECluster(job_extra=['-t 1-<n>'])` creates different names for each task
+        # Default for $SGE_TASK_ID is `undefined` (str)
+        name = f"{name}_$SGE_TASK_ID"
         super().__init__(
             scheduler=scheduler, name=name, config_name=config_name, **kwargs
         )

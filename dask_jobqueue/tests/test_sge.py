@@ -40,6 +40,68 @@ def test_basic(loop):
                 assert time() < start + QUEUE_WAIT
 
 
+@pytest.mark.env("sge")
+def test_basic_ta(loop):
+    with SGECluster(
+        walltime="00:02:00", cores=1, processes=1, memory="2GB", loop=loop,
+        job_extra=["-t 1-2"]
+    ) as cluster:
+        with Client(cluster, loop=loop) as client:
+
+            cluster.scale(2)
+
+            assert (
+                len(cluster.worker_spec) == 2
+            ), f"cluster.worker_spec should be 2, {cluster.worker_spec} found"
+
+            start = time()
+            while not client.scheduler_info()["workers"]:
+                sleep(0.100)
+                assert time() < start + QUEUE_WAIT
+
+            start = time()
+            while len(client.scheduler_info()["workers"]) < 4:
+                sleep(0.100)
+                assert time() < start + QUEUE_WAIT
+            assert (
+                len(cluster.scheduler_info["workers"]) == 4
+            ), f"cluster.scheduler_info should have 4 workers, {len(cluster.scheduler_info['workers'])} found"
+            expected_names = ['0_1', '0_2', '1_1', '1_2']
+            workers_names = sorted(i['id'] for i in cluster.scheduler_info["workers"].values())
+            assert workers_names == expected_names, f'cluster.scheduler_info should have the following ids: {expected_names}. {workers_names} found instead'
+
+
+@pytest.mark.env("sge")
+def test_processes_ta(loop):
+    with SGECluster(
+        walltime="00:02:00", cores=4, processes=2, memory="2GB", loop=loop,
+        job_extra=["-t 1-2", "-pe smp 4"]
+    ) as cluster:
+        with Client(cluster, loop=loop) as client:
+
+            cluster.scale(1)
+
+            assert (
+                len(cluster.worker_spec) == 1
+            ), f"cluster.worker_spec should be 1, {cluster.worker_spec} found"
+
+            start = time()
+            while not client.scheduler_info()["workers"]:
+                sleep(0.100)
+                assert time() < start + QUEUE_WAIT
+
+            start = time()
+            while len(client.scheduler_info()["workers"]) < 4:
+                sleep(0.100)
+                assert time() < start + QUEUE_WAIT
+            assert (
+                len(cluster.scheduler_info["workers"]) == 4
+            ), f"cluster.scheduler_info should have 4 workers, {len(cluster.scheduler_info['workers'])} found"
+            expected_names = ['0_1-0', '0_1-1', '0_2-0', '0_2-1']
+            workers_names = sorted(i['id'] for i in cluster.scheduler_info["workers"].values())
+            assert workers_names == expected_names, f'cluster.scheduler_info should have the following ids: {expected_names}. {workers_names} found instead'
+
+
 def test_config_name_sge_takes_custom_config():
     conf = {
         "queue": "myqueue",
